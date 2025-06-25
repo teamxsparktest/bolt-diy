@@ -16,7 +16,7 @@ preview_bucket_name = "bolt-storage-dev"
 [[d1_databases]]
 binding = "BOLT_DB"
 database_name = "bolt-database"
-database_id = "1c21d1b951373276c7cffe10b4057a8e" # Replace with actual DB ID after creation
+database_id = "87e9ac53-17fd-401c-8cfb-07242a2c1193" # D1 Database ID
 
 # KV Namespace configuration
 [[kv_namespaces]]

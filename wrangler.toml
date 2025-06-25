@@ -1,5 +1,6 @@
 #:schema node_modules/wrangler/config-schema.json
 name = "bolt"
+account_id = "1c21d1b951373276c7cffe10b4057a8e"
 compatibility_flags = ["nodejs_compat"]
 compatibility_date = "2025-03-28"
 pages_build_output_dir = "./build/client"
@@ -20,5 +21,5 @@ database_id = "1c21d1b951373276c7cffe10b4057a8e" # Replace with actual DB ID aft
 # KV Namespace configuration
 [[kv_namespaces]]
 binding = "BOLT_CACHE"
-id = "1c21d1b951373276c7cffe10b4057a8e" # Replace with actual KV ID after creation
-preview_id = "1c21d1b951373276c7cffe10b4057a8e" # Replace with actual preview KV ID after creation
+id = "2fb4385d64154cf587396f6536d3cb77" # KV namespace ID
+preview_id = "2fb4385d64154cf587396f6536d3cb77" # Using same ID for preview for now

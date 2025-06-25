@@ -16,10 +16,10 @@ preview_bucket_name = "bolt-storage-dev"
 [[d1_databases]]
 binding = "BOLT_DB"
 database_name = "bolt-database"
-database_id = "87e9ac53-17fd-401c-8cfb-07242a2c1193" # D1 Database ID
+database_id = "0b0c46a4-ad09-4b0b-8175-ebfa9040eb98" # D1 Database ID
 
 # KV Namespace configuration
 [[kv_namespaces]]
 binding = "BOLT_CACHE"
-id = "2fb4385d64154cf587396f6536d3cb77" # KV namespace ID
-preview_id = "2fb4385d64154cf587396f6536d3cb77" # Using same ID for preview for now
+id = "6bc5ffdfb72b4283b75e661d33803b5e" # KV namespace ID
+preview_id = "38e84cbfb8d34d6d9ebab8b591ac67cf" # Preview KV namespace ID

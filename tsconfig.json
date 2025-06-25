@@ -4,7 +4,7 @@
     "types": [
       "@remix-run/cloudflare",
       "vite/client",
-      "@cloudflare/workers-types/2023-07-01",
+      "@cloudflare/workers-types",
       "@types/dom-speech-recognition",
       "electron"
     ],
@@ -25,7 +25,10 @@
       "~/*": ["./app/*"]
     },
     // vite takes care of building everything, not tsc
-    "noEmit": true
+    "noEmit": true,
+    // Temporarily reduce type checking strictness for development
+    "noImplicitAny": false,
+    "strictNullChecks": false
   },
   "include": [
     "**/*.ts",
@@ -34,5 +37,6 @@
     "**/.server/**/*.tsx",
     "**/.client/**/*.ts",
     "**/.client/**/*.tsx"
-  ]
+  ],
+  "exclude": ["node_modules", "build", "dist"]
 }

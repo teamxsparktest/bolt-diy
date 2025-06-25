@@ -22,7 +22,7 @@ try {
   // Set NODE_OPTIONS directly in the environment
   process.env.NODE_OPTIONS = '--max_old_space_size=3072';
 
-  execSync('remix vite:build --config vite.cloudflare.config.ts', {
+  execSync('npx remix vite:build --config vite.cloudflare.config.ts', {
     stdio: 'inherit',
     env: { ...process.env }
   });

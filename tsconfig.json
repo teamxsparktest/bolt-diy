@@ -24,8 +24,10 @@
     "paths": {
       "~/*": ["./app/*"]
     },
+
     // vite takes care of building everything, not tsc
     "noEmit": true,
+
     // Temporarily reduce type checking strictness for development
     "noImplicitAny": false,
     "strictNullChecks": false

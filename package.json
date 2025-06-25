@@ -13,7 +13,7 @@
   "scripts": {
     "deploy": "npm run build && wrangler pages deploy",
     "build": "remix vite:build",
-    "cloudflare-build": "NODE_OPTIONS=--max_old_space_size=3072 remix vite:build --config vite.cloudflare.config.ts",
+    "cloudflare-build": "cross-env NODE_OPTIONS=--max_old_space_size=3072 remix vite:build --config vite.cloudflare.config.ts",
     "dev": "node pre-start.cjs  && remix vite:dev",
     "test": "vitest --run",
     "test:watch": "vitest",

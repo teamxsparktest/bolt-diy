@@ -18,7 +18,7 @@ remix vite:build --config vite.cloudflare.config.ts
 
 # Deploy to Cloudflare Pages
 echo -e "${YELLOW}Deploying to Cloudflare Pages...${NC}"
-wrangler pages deploy ./build/client --project-name bolt-diy
+npx wrangler pages deploy ./build/client --project-name bolt-diy
 
 echo -e "${GREEN}Deployment complete! Your application should be live on Cloudflare Pages.${NC}"
 echo -e "${YELLOW}Check the Cloudflare dashboard for your application URL and settings.${NC}"

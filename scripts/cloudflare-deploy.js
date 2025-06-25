@@ -19,8 +19,12 @@ console.log(`🚀 Preparing for Cloudflare ${deployTarget.toUpperCase()} deploym
 // Build the application
 console.log('🔨 Building application...');
 try {
-  execSync('cross-env NODE_OPTIONS=--max_old_space_size=3072 remix vite:build --config vite.cloudflare.config.ts', {
-    stdio: 'inherit'
+  // Set NODE_OPTIONS directly in the environment
+  process.env.NODE_OPTIONS = '--max_old_space_size=3072';
+
+  execSync('remix vite:build --config vite.cloudflare.config.ts', {
+    stdio: 'inherit',
+    env: { ...process.env }
   });
 } catch (error) {
   console.error('❌ Build failed:', error.message);

@@ -1,5 +1,5 @@
 #:schema node_modules/wrangler/config-schema.json
-name = "bolt"
+name = "bolt-diy"
 account_id = "1c21d1b951373276c7cffe10b4057a8e"
 compatibility_flags = ["nodejs_compat"]
 compatibility_date = "2025-03-28"

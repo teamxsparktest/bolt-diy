@@ -15,7 +15,7 @@
     "build": "remix vite:build",
     "cloudflare-build": "cross-env NODE_OPTIONS=--max_old_space_size=3072 remix vite:build --config vite.cloudflare.config.ts",
     "cloudflare-build-debug": "cross-env NODE_OPTIONS=\"--max_old_space_size=3072 --trace-warnings\" DEBUG=vite:* remix vite:build --config vite.cloudflare.config.ts",
-    "cloudflare-build-simple": "remix vite:build",
+    "cloudflare-build-simple": "npx remix vite:build",
     "deploy-pages": "cross-env NODE_OPTIONS=--max_old_space_size=3072 remix vite:build --config vite.cloudflare.config.ts && node scripts/deploy-pages.js",
     "deploy-workers": "node scripts/cloudflare-deploy.js workers",
     "deploy-cf-pages": "node scripts/cloudflare-deploy.js pages",

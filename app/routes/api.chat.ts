@@ -12,6 +12,7 @@ import { WORK_DIR } from '~/utils/constants';
 import { createSummary } from '~/lib/.server/llm/create-summary';
 import { extractPropertiesFromMessage } from '~/lib/.server/llm/utils';
 import type { DesignScheme } from '~/types/design-scheme';
+import { getCloudflareContext } from '~/root';
 
 export async function action(args: ActionFunctionArgs) {
   return chatAction(args);
@@ -55,11 +56,41 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
     };
   }>();
 
+  // Get Cloudflare context if available
+  const cfContext = getCloudflareContext();
+
+  // Store chat in Cloudflare D1 if available
+  if (cfContext && messages.length > 0) {
+    try {
+      const chatId = messages[0].id;
+      const description = `Chat ${new Date().toLocaleString()}`;
+      await cfContext.saveChatMessages(chatId, messages, chatId, description);
+      logger.debug(`Chat saved to Cloudflare D1: ${chatId}`);
+    } catch (error) {
+      logger.error('Failed to save chat to Cloudflare D1', error);
+      // Continue with the request even if saving fails
+    }
+  }
+
   const cookieHeader = request.headers.get('Cookie');
   const apiKeys = JSON.parse(parseCookies(cookieHeader || '').apiKeys || '{}');
   const providerSettings: Record<string, IProviderSetting> = JSON.parse(
     parseCookies(cookieHeader || '').providers || '{}',
   );
+
+  // Try to get API keys from Cloudflare KV if available
+  if (cfContext && Object.keys(apiKeys).length === 0) {
+    try {
+      const userId = 'default'; // You might want to implement proper user identification
+      const storedApiKeys = await cfContext.getApiKeys(userId);
+      if (storedApiKeys) {
+        Object.assign(apiKeys, storedApiKeys);
+        logger.debug('Retrieved API keys from Cloudflare KV');
+      }
+    } catch (error) {
+      logger.error('Failed to retrieve API keys from Cloudflare KV', error);
+    }
+  }
 
   const stream = new SwitchableStream();
 
@@ -220,6 +251,19 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
               } satisfies ProgressAnnotation);
               await new Promise((resolve) => setTimeout(resolve, 0));
 
+              // Store the final chat in Cloudflare D1 if available
+              if (cfContext && messages.length > 0) {
+                try {
+                  const chatId = messages[0].id;
+                  const allMessages = [...messages, { id: generateId(), role: 'assistant', content }];
+                  const description = `Chat ${new Date().toLocaleString()}`;
+                  await cfContext.saveChatMessages(chatId, allMessages, chatId, description);
+                  logger.debug(`Final chat saved to Cloudflare D1: ${chatId}`);
+                } catch (error) {
+                  logger.error('Failed to save final chat to Cloudflare D1', error);
+                }
+              }
+
               // stream.close();
               return;
             }
@@ -250,27 +294,19 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
               providerSettings,
               promptId,
               contextOptimization,
-              contextFiles: filteredFiles,
-              chatMode,
-              designScheme,
+              filteredFiles,
               summary,
-              messageSliceId,
+              onToken: (token) => {
+                const chunk = token.replace(/^\n+/, '');
+                lastChunk = chunk;
+                dataStream.writeChunk(chunk);
+              },
+              onFinish,
             });
 
-            result.mergeIntoDataStream(dataStream);
-
-            (async () => {
-              for await (const part of result.fullStream) {
-                if (part.type === 'error') {
-                  const error: any = part.error;
-                  logger.error(`${error}`);
-
-                  return;
-                }
-              }
-            })();
-
-            return;
+            if (result.error) {
+              throw result.error;
+            }
           },
         };
 
@@ -291,86 +327,46 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
           providerSettings,
           promptId,
           contextOptimization,
-          contextFiles: filteredFiles,
-          chatMode,
-          designScheme,
+          filteredFiles,
           summary,
-          messageSliceId,
+          onToken: (token) => {
+            const chunk = token.replace(/^\n+/, '');
+            lastChunk = chunk;
+            dataStream.writeChunk(chunk);
+          },
+          onFinish: options.onFinish,
         });
 
-        (async () => {
-          for await (const part of result.fullStream) {
-            if (part.type === 'error') {
-              const error: any = part.error;
-              logger.error(`${error}`);
-
-              return;
-            }
-          }
-        })();
-        result.mergeIntoDataStream(dataStream);
-      },
-      onError: (error: any) => `Custom error: ${error.message}`,
-    }).pipeThrough(
-      new TransformStream({
-        transform: (chunk, controller) => {
-          if (!lastChunk) {
-            lastChunk = ' ';
-          }
-
-          if (typeof chunk === 'string') {
-            if (chunk.startsWith('g') && !lastChunk.startsWith('g')) {
-              controller.enqueue(encoder.encode(`0: "<div class=\\"__boltThought__\\">"\n`));
-            }
-
-            if (lastChunk.startsWith('g') && !chunk.startsWith('g')) {
-              controller.enqueue(encoder.encode(`0: "</div>\\n"\n`));
-            }
-          }
-
-          lastChunk = chunk;
-
-          let transformedChunk = chunk;
-
-          if (typeof chunk === 'string' && chunk.startsWith('g')) {
-            let content = chunk.split(':').slice(1).join(':');
-
-            if (content.endsWith('\n')) {
-              content = content.slice(0, content.length - 1);
-            }
-
-            transformedChunk = `0:${content}\n`;
-          }
-
-          // Convert the string stream to a byte stream
-          const str = typeof transformedChunk === 'string' ? transformedChunk : JSON.stringify(transformedChunk);
-          controller.enqueue(encoder.encode(str));
-        },
-      }),
-    );
-
-    return new Response(dataStream, {
-      status: 200,
-      headers: {
-        'Content-Type': 'text/event-stream; charset=utf-8',
-        Connection: 'keep-alive',
-        'Cache-Control': 'no-cache',
-        'Text-Encoding': 'chunked',
+        if (result.error) {
+          throw result.error;
+        }
       },
     });
-  } catch (error: any) {
-    logger.error(error);
 
-    if (error.message?.includes('API key')) {
-      throw new Response('Invalid or missing API key', {
-        status: 401,
-        statusText: 'Unauthorized',
-      });
-    }
+    return new Response(dataStream.stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
+    });
+  } catch (error) {
+    console.error('Error in chat API:', error);
 
-    throw new Response(null, {
-      status: 500,
-      statusText: 'Internal Server Error',
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
+    const errorStream = createDataStream({
+      async execute(errorStream) {
+        errorStream.writeChunk(`Error: ${errorMessage}`);
+      },
+    });
+
+    return new Response(errorStream.stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
     });
   }
 }

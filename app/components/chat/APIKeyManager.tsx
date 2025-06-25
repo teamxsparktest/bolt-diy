@@ -2,6 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { IconButton } from '~/components/ui/IconButton';
 import type { ProviderInfo } from '~/types/model';
 import Cookies from 'js-cookie';
+import { useCloudflareApiKeys } from '~/lib/hooks/useCloudflareApiKeys';
+import { createScopedLogger } from '~/utils/logger';
+
+const logger = createScopedLogger('APIKeyManager');
 
 interface APIKeyManagerProps {
   provider: ProviderInfo;
@@ -36,15 +40,43 @@ export const APIKeyManager: React.FC<APIKeyManagerProps> = ({ provider, apiKey, 
   const [isEditing, setIsEditing] = useState(false);
   const [tempKey, setTempKey] = useState(apiKey);
   const [isEnvKeySet, setIsEnvKeySet] = useState(false);
+  const { getApiKeys, saveApiKey, isLoading } = useCloudflareApiKeys();
+  const [isCloudflareMode, setIsCloudflareMode] = useState(false);
 
   // Reset states and load saved key when provider changes
   useEffect(() => {
-    // Load saved API key from cookies for this provider
-    const savedKeys = getApiKeysFromCookies();
-    const savedKey = savedKeys[provider.name] || '';
+    // Try to load from Cloudflare KV first, then fall back to cookies
+    const loadApiKey = async () => {
+      try {
+        const cloudflareKeys = await getApiKeys();
+        const cloudflareKey = cloudflareKeys.find(k => k.provider === provider.name);
 
-    setTempKey(savedKey);
-    setApiKey(savedKey);
+        if (cloudflareKey) {
+          logger.debug(`Found API key for ${provider.name} in Cloudflare KV`);
+          setIsCloudflareMode(true);
+          // We don't have the actual key, just a masked version
+          // The actual key is stored server-side in Cloudflare KV
+          // We'll use the existing apiKey if it's already set
+          if (!apiKey) {
+            // Let the user know we're using a key from Cloudflare KV
+            setApiKey('CLOUDFLARE_STORED_KEY');
+          }
+          return;
+        }
+      } catch (error) {
+        logger.debug('Cloudflare KV not available, falling back to cookies');
+        setIsCloudflareMode(false);
+      }
+
+      // Fall back to cookies
+      const savedKeys = getApiKeysFromCookies();
+      const savedKey = savedKeys[provider.name] || '';
+
+      setTempKey(savedKey);
+      setApiKey(savedKey);
+    };
+
+    loadApiKey();
     setIsEditing(false);
   }, [provider.name]);
 
@@ -73,14 +105,32 @@ export const APIKeyManager: React.FC<APIKeyManagerProps> = ({ provider, apiKey, 
     checkEnvApiKey();
   }, [checkEnvApiKey]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // Save to parent state
     setApiKey(tempKey);
 
-    // Save to cookies
-    const currentKeys = getApiKeysFromCookies();
-    const newKeys = { ...currentKeys, [provider.name]: tempKey };
-    Cookies.set('apiKeys', JSON.stringify(newKeys));
+    if (isCloudflareMode) {
+      // Save to Cloudflare KV
+      try {
+        const success = await saveApiKey(provider.name, tempKey);
+        if (success) {
+          logger.debug(`Saved API key for ${provider.name} to Cloudflare KV`);
+        } else {
+          throw new Error('Failed to save API key to Cloudflare KV');
+        }
+      } catch (error) {
+        logger.error('Error saving to Cloudflare KV, falling back to cookies', error);
+        // Fall back to cookies
+        const currentKeys = getApiKeysFromCookies();
+        const newKeys = { ...currentKeys, [provider.name]: tempKey };
+        Cookies.set('apiKeys', JSON.stringify(newKeys));
+      }
+    } else {
+      // Save to cookies
+      const currentKeys = getApiKeysFromCookies();
+      const newKeys = { ...currentKeys, [provider.name]: tempKey };
+      Cookies.set('apiKeys', JSON.stringify(newKeys));
+    }
 
     setIsEditing(false);
   };
@@ -95,7 +145,11 @@ export const APIKeyManager: React.FC<APIKeyManagerProps> = ({ provider, apiKey, 
               {apiKey ? (
                 <>
                   <div className="i-ph:check-circle-fill text-green-500 w-4 h-4" />
-                  <span className="text-xs text-green-500">Set via UI</span>
+                  <span className="text-xs text-green-500">
+                    {apiKey === 'CLOUDFLARE_STORED_KEY'
+                      ? 'Set via Cloudflare KV'
+                      : 'Set via UI'}
+                  </span>
                 </>
               ) : isEnvKeySet ? (
                 <>
@@ -121,21 +175,27 @@ export const APIKeyManager: React.FC<APIKeyManagerProps> = ({ provider, apiKey, 
               value={tempKey}
               placeholder="Enter API Key"
               onChange={(e) => setTempKey(e.target.value)}
-              className="w-[300px] px-3 py-1.5 text-sm rounded border border-bolt-elements-borderColor 
-                        bg-bolt-elements-prompt-background text-bolt-elements-textPrimary 
+              className="w-[300px] px-3 py-1.5 text-sm rounded border border-bolt-elements-borderColor
+                        bg-bolt-elements-prompt-background text-bolt-elements-textPrimary
                         focus:outline-none focus:ring-2 focus:ring-bolt-elements-focus"
             />
             <IconButton
               onClick={handleSave}
               title="Save API Key"
               className="bg-green-500/10 hover:bg-green-500/20 text-green-500"
+              disabled={isLoading}
             >
-              <div className="i-ph:check w-4 h-4" />
+              {isLoading ? (
+                <div className="i-svg-spinners:270-ring-with-bg w-4 h-4" />
+              ) : (
+                <div className="i-ph:check w-4 h-4" />
+              )}
             </IconButton>
             <IconButton
               onClick={() => setIsEditing(false)}
               title="Cancel"
               className="bg-red-500/10 hover:bg-red-500/20 text-red-500"
+              disabled={isLoading}
             >
               <div className="i-ph:x w-4 h-4" />
             </IconButton>

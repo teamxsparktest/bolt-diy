@@ -1,6 +1,6 @@
 import { useStore } from '@nanostores/react';
-import type { LinksFunction } from '@remix-run/cloudflare';
-import { Links, Meta, Outlet, Scripts, ScrollRestoration } from '@remix-run/react';
+import type { LinksFunction, LoaderFunctionArgs } from '@remix-run/cloudflare';
+import { Links, Meta, Outlet, Scripts, ScrollRestoration, json, useLoaderData } from '@remix-run/react';
 import tailwindReset from '@unocss/reset/tailwind-compat.css?url';
 import { themeStore } from './lib/stores/theme';
 import { stripIndents } from './utils/stripIndent';
@@ -9,12 +9,34 @@ import { useEffect } from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { ClientOnly } from 'remix-utils/client-only';
+import { CloudflareContext, type CloudflareBindings } from './lib/persistence/cloudflare-context';
 
 import reactToastifyStyles from 'react-toastify/dist/ReactToastify.css?url';
 import globalStyles from './styles/index.scss?url';
 import xtermStyles from '@xterm/xterm/css/xterm.css?url';
 
 import 'virtual:uno.css';
+
+// Create a context object for Cloudflare services
+let cfContext: CloudflareContext | null = null;
+
+export const loader = async ({ context }: LoaderFunctionArgs) => {
+  // Initialize Cloudflare context if we're running on Cloudflare
+  if (context.cloudflare?.env) {
+    const env = context.cloudflare.env as unknown as CloudflareBindings;
+
+    if (env.BOLT_DB && env.BOLT_CACHE && env.BOLT_STORAGE) {
+      if (!cfContext) {
+        cfContext = new CloudflareContext(env);
+        await cfContext.initialize();
+      }
+    }
+  }
+
+  return json({
+    isCloudflare: Boolean(context.cloudflare?.env),
+  });
+};
 
 export const links: LinksFunction = () => [
   {
@@ -84,6 +106,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 import { logStore } from './lib/stores/logs';
 
 export default function App() {
+  const { isCloudflare } = useLoaderData<typeof loader>();
   const theme = useStore(themeStore);
 
   useEffect(() => {
@@ -92,6 +115,7 @@ export default function App() {
       platform: navigator.platform,
       userAgent: navigator.userAgent,
       timestamp: new Date().toISOString(),
+      environment: isCloudflare ? 'cloudflare' : 'local',
     });
   }, []);
 
@@ -100,4 +124,9 @@ export default function App() {
       <Outlet />
     </Layout>
   );
+}
+
+// Helper function to get the Cloudflare context
+export function getCloudflareContext(): CloudflareContext | null {
+  return cfContext;
 }

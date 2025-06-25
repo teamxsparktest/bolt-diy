@@ -1,0 +1,24 @@
+#:schema node_modules/wrangler/config-schema.json
+name = "bolt-diy"
+compatibility_flags = ["nodejs_compat"]
+compatibility_date = "2025-03-28"
+pages_build_output_dir = "./build/client"
+send_metrics = true
+
+# R2 Storage configuration
+[[r2_buckets]]
+binding = "BOLT_STORAGE"
+bucket_name = "bolt-storage"
+preview_bucket_name = "bolt-storage-dev"
+
+# D1 Database configuration
+[[d1_databases]]
+binding = "BOLT_DB"
+database_name = "bolt-database"
+database_id = "0b0c46a4-ad09-4b0b-8175-ebfa9040eb98" # D1 Database ID
+
+# KV Namespace configuration
+[[kv_namespaces]]
+binding = "BOLT_CACHE"
+id = "6bc5ffdfb72b4283b75e661d33803b5e" # KV namespace ID
+preview_id = "38e84cbfb8d34d6d9ebab8b591ac67cf" # Preview KV namespace ID

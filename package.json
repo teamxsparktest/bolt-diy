@@ -16,7 +16,7 @@
     "cloudflare-build": "cross-env NODE_OPTIONS=--max_old_space_size=3072 remix vite:build --config vite.cloudflare.config.ts",
     "cloudflare-build-debug": "cross-env NODE_OPTIONS=\"--max_old_space_size=3072 --trace-warnings\" DEBUG=vite:* remix vite:build --config vite.cloudflare.config.ts",
     "cloudflare-build-simple": "remix vite:build",
-    "deploy-pages": "cross-env NODE_OPTIONS=--max_old_space_size=3072 remix vite:build --config vite.cloudflare.config.ts && npx wrangler pages deploy ./build/client --project-name bolt-diy",
+    "deploy-pages": "cross-env NODE_OPTIONS=--max_old_space_size=3072 remix vite:build --config vite.cloudflare.config.ts && npx wrangler pages deploy ./build/client --project-name bolt-diy --config wrangler.pages.toml",
     "dev": "node pre-start.cjs  && remix vite:dev",
     "test": "vitest --run",
     "test:watch": "vitest",
